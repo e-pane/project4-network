@@ -1,0 +1,5 @@
+#posts-view{
+    padding-left: 20px;
+    overflow-y: auto;
+    height: 500px;
+}

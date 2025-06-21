@@ -1,0 +1,19 @@
+{% extends "network/layout.html" %}
+
+{% block body %}
+<div id="new-post-view">
+    <h3>New Post</h3>
+    <form id="compose-form">
+        <input type="hidden" id="poster-username" value="{{ request.user.username }}" />
+        <textarea class="form-control" id="post-body" placeholder="Body"></textarea>
+        <input type="submit" class="btn btn-primary" value="Post"/>
+    </form>
+</div>
+
+<div id="profile-view" style="display:none"></div>
+<br></br>
+<div id="posts-view" style="display:none"></div>
+<br></br>
+<div id="usernames-view" style="display:none"></div>
+
+{% endblock %}
