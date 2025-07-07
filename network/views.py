@@ -9,17 +9,16 @@ import json
 
 from .models import User, Post
 
-batch_size = 10
-
 def build_profile_dict(request,user_id):
+    offset, batch_size = parse_pagination_params(request)
+
     target_user = User.objects.get(id=user_id)
     serialized_user = target_user.serialize()
     follower_ids = serialized_user["follower_ids"]
     following_ids = serialized_user["following_ids"]
     follower_usernames = serialized_user["follower_usernames"]
     following_usernames = serialized_user["following_usernames"]
-    offset = int(request.GET.get('offset', 0))
-    batch_size = int(request.GET.get('batchSize',10))
+    
     posts = Post.objects.filter(poster = target_user).order_by('-timestamp')[offset:offset+batch_size]
     serialized_posts = [post.serialize() for post in posts]
     profile = {"user_id": target_user.id,
@@ -35,6 +34,23 @@ def build_profile_dict(request,user_id):
     }
     return profile
 
+def parse_pagination_params(request): # utility to parse incoming pagination params and check value range
+    try:
+        offset = (request.GET.get('offset', 0))
+        batch_size = (request.GET.get('batchSize',5))
+
+        if offset in [None, "", "None"] or batch_size in [None, "", "None"]:
+            raise ValueError
+        
+        offset = int(offset)
+        batch_size = int(batch_size)
+        
+        if offset <0 or batch_size <= 0 or batch_size > 100 or offset > 10000:
+            raise ValueError
+    except (ValueError, TypeError):
+        raise ValueError("Invalid pagination parameters")
+    return offset, batch_size
+
 def toggle_post_reaction(request,post_id,reaction):
     if request.method == 'POST':
         try:
@@ -44,11 +60,16 @@ def toggle_post_reaction(request,post_id,reaction):
             elif reaction == "dislike":
                 field_to_toggle = target_post.disliked_by
 
+            if target_post.poster == request.user:
+                return JsonResponse({"error": "Users cannot react to their own posts."}, status=400)
+
             field_to_toggle.add(request.user)
             user_id = request.user.id
 
-            offset = int(request.GET.get('offset', 0))
-            batch_size = int(request.GET.get('batchSize',10))
+            try:
+                offset, batch_size = parse_pagination_params(request)
+            except ValueError as e:
+                return JsonResponse({"error": str(e)}, status=400)
             posts = Post.objects.all().order_by('-timestamp')[offset:offset+batch_size]
             serialized_posts = [post.serialize() for post in posts]
             profile = build_profile_dict(request, user_id)
@@ -86,8 +107,10 @@ def compose(request):
                 body=post_body)
     post.save()
 
-    offset = int(request.GET.get('offset', 0))
-    batch_size = int(request.GET.get('batchSize',10))
+    try:
+        offset, batch_size = parse_pagination_params(request)
+    except ValueError as e:
+        return JsonResponse({"error": str(e)}, status=400)
     posts = Post.objects.all().order_by('-timestamp')[offset:offset+batch_size]
     serialized_posts = [post.serialize() for post in posts]
     return JsonResponse(serialized_posts, safe=False)
@@ -111,17 +134,17 @@ def get_follow_usernames(request,option):
 
 @login_required
 def get_posts(request):
+    try:
+        offset, batch_size = parse_pagination_params(request)
+    except ValueError as e:
+        return JsonResponse({"error": str(e)}, status=400)
     
     if request.GET.get('filter') == 'all-posts':
-        offset = int(request.GET.get('offset', 0))
-        batch_size = int(request.GET.get('batchSize',10))
         posts = Post.objects.all().order_by('-timestamp')[offset:offset+batch_size]
         serialized_posts = [post.serialize() for post in posts]
         return JsonResponse(serialized_posts, safe=False)
     
     elif request.GET.get('filter') == 'my-posts':
-        offset = int(request.GET.get('offset', 0))
-        batch_size = int(request.GET.get('batchSize',10))
         posts = Post.objects.filter(poster = request.user).order_by('-timestamp')[offset:offset+batch_size]
         serialized_posts = [post.serialize() for post in posts]
         return JsonResponse(serialized_posts, safe=False)
@@ -132,9 +155,12 @@ def get_posts(request):
 @login_required
 def get_profile(request,user_id):
     try:
-        return JsonResponse(build_profile_dict(request, user_id))
+        profile = build_profile_dict(request, user_id)
+        return JsonResponse(profile)
     except User.DoesNotExist:
         return JsonResponse({"error": "User not found"}, status=404)
+    except ValueError as e:
+        return JsonResponse({"error": str(e)}, status=400)    
 
 
 def index(request):
@@ -198,6 +224,7 @@ def register(request):
     else:
         return render(request, "network/register.html")
 
+@login_required
 def toggle_follow_status(request, user_id):
     if request.method != 'POST':
         return HttpResponse("Method Not Allowed", status=405)

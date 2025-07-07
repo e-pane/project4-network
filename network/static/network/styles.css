@@ -1,5 +1,6 @@
 #posts-view{
     padding-left: 20px;
     overflow-y: auto;
-    height: 500px;
+    height: 350px;  /* smaller height to force scrolling */
+    border: 1px solid #ccc;
 }
