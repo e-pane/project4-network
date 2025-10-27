@@ -1,1 +1,1 @@
-Eric Pane's CS50 Web Dev course mock-up of a social network app.  Written in Python ecosystem with Django framework and SQL models and migrations.  Using a vanilla javascript front-end with AJAX fetch http requests and responses
+Eric Pane's CS50 Web Dev course full-stack mock-up of a social network app.  Written in Python ecosystem with Django framework and SQL models and migrations.  Using a vanilla javascript front-end with AJAX fetch http requests and responses
